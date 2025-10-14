@@ -350,9 +350,12 @@ async def liststreamers(interaction: nextcord.Interaction):
         twitch_user = await get_twitch_user(entry["streamer_id"])
         streamer_name = twitch_user["display_name"] if twitch_user else "Unknown Streamer"
         
+        channel = interaction.guild.get_channel(entry["channel_id"])
+        channel_mention = channel.mention if channel else "Channel not found"
+        
         embed.add_field(
             name=f"{streamer_name} ({entry['streamer_id']})",
-            value=f"Added by: <@{entry['added_by_user_id']}>",
+            value=f"Added by: <@{entry['added_by_user_id']}>\nChannel: {channel_mention}",
             inline=False
         )
     

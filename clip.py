@@ -350,7 +350,6 @@ async def liststreamers(interaction: nextcord.Interaction):
         twitch_user = await get_twitch_user(entry["streamer_id"])
         streamer_name = twitch_user["display_name"] if twitch_user else "Unknown Streamer"
         
-        # Versuche, den Kanal abzurufen
         channel = interaction.guild.get_channel(entry["channel_id"])
         channel_mention = channel.mention if channel else "Channel not found"
         

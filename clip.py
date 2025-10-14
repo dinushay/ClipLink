@@ -267,8 +267,11 @@ async def before_checker():
 # =============================
 #  Slash Commands
 # =============================
-@bot.slash_command(description="Adds a Twitch streamer for clip notifications.")
-@commands.has_permissions(manage_channels=True)
+
+@bot.slash_command(
+    description="Adds a Twitch streamer for clip notifications.",
+    default_member_permissions=nextcord.Permissions(manage_channels=True)
+)
 async def addstreamer(
     interaction: nextcord.Interaction,
     twitch_user: str = nextcord.SlashOption(description="The name or ID of the Twitch streamer.", required=True),
@@ -279,7 +282,7 @@ async def addstreamer(
     )
 ):
     target_channel = channel or interaction.channel
-    
+
     if not target_channel.permissions_for(interaction.guild.me).view_channel or \
        not target_channel.permissions_for(interaction.guild.me).send_messages or \
        not target_channel.permissions_for(interaction.guild.me).embed_links:
@@ -306,7 +309,7 @@ async def addstreamer(
             ephemeral=True
         )
         return
-    
+
     streamer_id = twitch_account["id"]
     streamer_name = twitch_account["display_name"]
 
@@ -316,7 +319,7 @@ async def addstreamer(
             ephemeral=True
         )
         return
-        
+
     new_entry = {
         "streamer_id": streamer_id,
         "server_id": interaction.guild.id,
@@ -332,8 +335,8 @@ async def addstreamer(
         ephemeral=True
     )
 
+# liststreamers bleibt für alle frei verfügbar
 @bot.slash_command(description="Lists all monitored streamers on this server.")
-@commands.has_permissions(manage_channels=True)
 async def liststreamers(interaction: nextcord.Interaction):
     guild_data = [s for s in load_data() if s["server_id"] == interaction.guild.id]
 
@@ -345,43 +348,46 @@ async def liststreamers(interaction: nextcord.Interaction):
         title=f"Monitored streamers on {interaction.guild.name}",
         color=nextcord.Color.blue()
     )
-    
+
     for entry in guild_data:
         twitch_user = await get_twitch_user(entry["streamer_id"])
         streamer_name = twitch_user["display_name"] if twitch_user else "Unknown Streamer"
-        
+
         channel = interaction.guild.get_channel(entry["channel_id"])
         channel_mention = channel.mention if channel else "Channel not found"
-        
+
         embed.add_field(
             name=f"{streamer_name} ({entry['streamer_id']})",
             value=f"Added by: <@{entry['added_by_user_id']}>\nChannel: {channel_mention}",
             inline=False
         )
-    
+
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-@bot.slash_command(description="Removes a streamer from the monitoring list.")
-@commands.has_permissions(manage_channels=True)
+
+@bot.slash_command(
+    description="Removes a streamer from the monitoring list.",
+    default_member_permissions=nextcord.Permissions(manage_channels=True)
+)
 async def removestreamer(
     interaction: nextcord.Interaction,
     streamer: str = nextcord.SlashOption(description="The ID of the streamer to remove.", required=True)
 ):
     all_data = load_data()
-    
+
     entry_to_remove = None
     for entry in all_data:
         if entry["server_id"] == interaction.guild.id and entry["streamer_id"] == streamer:
             entry_to_remove = entry
             break
-            
+
     if not entry_to_remove:
         await interaction.response.send_message("❌ **Error:** A streamer with this ID is not being monitored on this server.", ephemeral=True)
         return
-        
+
     all_data.remove(entry_to_remove)
     save_data(all_data)
-    
+
     await interaction.response.send_message(f"✅ **Success!** The streamer with the ID `{streamer}` is no longer being monitored.", ephemeral=True)
 
 @removestreamer.on_autocomplete("streamer")

@@ -335,7 +335,6 @@ async def addstreamer(
         ephemeral=True
     )
 
-# liststreamers bleibt für alle frei verfügbar
 @bot.slash_command(description="Lists all monitored streamers on this server.")
 async def liststreamers(interaction: nextcord.Interaction):
     guild_data = [s for s in load_data() if s["server_id"] == interaction.guild.id]

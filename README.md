@@ -4,7 +4,7 @@
 
 **ClipLink** is a powerful and easy-to-use Discord bot designed to automatically fetch and post the latest Twitch clips from your favorite streamers directly into your Discord server. Keep your community updated with the best moments as they happen!
 
-This bot is the code behind the [ClipLink Discord Bot](https://discord.com/oauth2/authorize?client_id=990591720653729842&scope=bot&permissions=19456).
+This bot is the code behind the [ClipLink Discord Bot](https://discord.com/oauth2/authorize?client_id=1431371175379992636&scope=bot&permissions=1945).
 
 
 ---

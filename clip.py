@@ -15,6 +15,10 @@ CHECK_INTERVAL_SECONDS = 60
 MAX_STREAMERS_PER_GUILD = 5
 DEBUG_MODE = False
 
+# Interner Cache für die Session (wird nicht in Datei gespeichert)
+# Speichert Clip-IDs, um Duplikate innerhalb von 24h/Session zu vermeiden
+POSTED_CLIPS_CACHE = set()
+
 # Load configuration
 try:
     with open(CONFIG_FILE, 'r') as f:
@@ -158,7 +162,20 @@ async def on_ready():
     print(f"[INFO] Bot is logged in as: {bot.user}")
     activity = nextcord.Streaming(name="🔗 dinushay.de", url="https://www.twitch.tv/dinu_shay")
     await bot.change_presence(activity=activity)
-    clip_checker.start()
+    
+    # Start Tasks
+    if not clip_checker.is_running():
+        clip_checker.start()
+    if not cache_cleaner.is_running():
+        cache_cleaner.start()
+
+@tasks.loop(hours=24)
+async def cache_cleaner():
+    """Leert den internen Cache alle 24 Stunden."""
+    global POSTED_CLIPS_CACHE
+    POSTED_CLIPS_CACHE.clear()
+    if DEBUG_MODE:
+        print(f"[CACHE CLEANUP] Der interne Clip-Cache wurde nach 24 Stunden geleert. Zeit: {datetime.now()}")
 
 @tasks.loop(seconds=CHECK_INTERVAL_SECONDS)
 async def clip_checker():
@@ -213,47 +230,64 @@ async def clip_checker():
             if DEBUG_MODE:
                 print(f"[DEBUG] No clips found yet for streamer {streamer_id}. Will check again.")
 
-        elif clip and clip["id"] != entry.get("last_clip_id"):
-            if DEBUG_MODE:
-                print(f"[NEW CLIP] New clip found for {clip['broadcaster_name']} ({clip['broadcaster_id']}): {clip['id']}")
-            entry["last_clip_id"] = clip["id"]
-
-            game_name = await get_twitch_game(clip.get("game_id", ""))
-            dt_object = datetime.fromisoformat(clip['created_at'].replace('Z', '+00:00'))
-            timestamp = int(dt_object.timestamp())
-
-            embed = nextcord.Embed(
-                title=f"🎬｜New Clip at {clip['broadcaster_name']}",
-                description=f"**[{clip['title']}]({clip['url']})**",
-                color=nextcord.Color.purple()
-            )
-            embed.add_field(name="Created by", value=clip['creator_name'], inline=True)
-            embed.add_field(name="Category", value=game_name, inline=True)
-            embed.add_field(name="Created", value=f"<t:{timestamp}:R>", inline=True)
-            embed.set_image(url=clip['thumbnail_url'])
-            embed.set_footer(text=f"Duration: {int(clip['duration'])} seconds")
-
-            view = nextcord.ui.View()
-            view.add_item(nextcord.ui.Button(label="View Clip", style=nextcord.ButtonStyle.link, url=clip['url']))
-
-            if clip.get("video_id") and clip.get("vod_offset") is not None:
-                video_id = clip["video_id"]
-                offset = clip["vod_offset"]
-                
-                hours = offset // 3600
-                minutes = (offset % 3600) // 60
-                seconds = offset % 60
-                vod_timestamp = f"{hours}h{minutes}m{seconds}s"
-                
-                vod_url = f"https://www.twitch.tv/videos/{video_id}?t={vod_timestamp}"
-                
-                view.add_item(nextcord.ui.Button(label="Go to VOD", style=nextcord.ButtonStyle.link, url=vod_url))
+        elif clip:
+            clip_id = clip["id"]
             
-            try:
-                await channel.send(embed=embed, view=view)
-            except nextcord.Forbidden:
+            # PRÜFUNG: Ist der Clip bereits im internen Session-Cache?
+            if clip_id in POSTED_CLIPS_CACHE:
                 if DEBUG_MODE:
-                    print(f"[ERROR] No permission to send in channel {channel.id} on server {guild.name}.")
+                    print(f"[CACHE HIT] Clip {clip_id} wurde in dieser Session bereits gepostet. Skipping.")
+                # Wir fügen den Entry trotzdem wieder hinzu, damit er nicht gelöscht wird
+                updated_streamers.append(entry)
+                continue
+
+            # PRÜFUNG: Ist der Clip ungleich der letzten gespeicherten ID in der Datei?
+            if clip_id != entry.get("last_clip_id"):
+                if DEBUG_MODE:
+                    print(f"[NEW CLIP] New clip found for {clip['broadcaster_name']} ({clip['broadcaster_id']}): {clip_id}")
+                
+                # Aktualisiere die Datei-Datenbank
+                entry["last_clip_id"] = clip_id
+                
+                # Füge ID zum internen Cache hinzu
+                POSTED_CLIPS_CACHE.add(clip_id)
+
+                game_name = await get_twitch_game(clip.get("game_id", ""))
+                dt_object = datetime.fromisoformat(clip['created_at'].replace('Z', '+00:00'))
+                timestamp = int(dt_object.timestamp())
+
+                embed = nextcord.Embed(
+                    title=f"🎬｜New Clip at {clip['broadcaster_name']}",
+                    description=f"**[{clip['title']}]({clip['url']})**",
+                    color=nextcord.Color.purple()
+                )
+                embed.add_field(name="Created by", value=clip['creator_name'], inline=True)
+                embed.add_field(name="Category", value=game_name, inline=True)
+                embed.add_field(name="Created", value=f"<t:{timestamp}:R>", inline=True)
+                embed.set_image(url=clip['thumbnail_url'])
+                embed.set_footer(text=f"Duration: {int(clip['duration'])} seconds")
+
+                view = nextcord.ui.View()
+                view.add_item(nextcord.ui.Button(label="View Clip", style=nextcord.ButtonStyle.link, url=clip['url']))
+
+                if clip.get("video_id") and clip.get("vod_offset") is not None:
+                    video_id = clip["video_id"]
+                    offset = clip["vod_offset"]
+                    
+                    hours = offset // 3600
+                    minutes = (offset % 3600) // 60
+                    seconds = offset % 60
+                    vod_timestamp = f"{hours}h{minutes}m{seconds}s"
+                    
+                    vod_url = f"https://www.twitch.tv/videos/{video_id}?t={vod_timestamp}"
+                    
+                    view.add_item(nextcord.ui.Button(label="Go to VOD", style=nextcord.ButtonStyle.link, url=vod_url))
+                
+                try:
+                    await channel.send(embed=embed, view=view)
+                except nextcord.Forbidden:
+                    if DEBUG_MODE:
+                        print(f"[ERROR] No permission to send in channel {channel.id} on server {guild.name}.")
 
         updated_streamers.append(entry)
 

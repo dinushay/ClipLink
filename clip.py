@@ -251,7 +251,7 @@ async def clip_checker():
                 entry["last_clip_id"] = clip_id
                 
                 # Füge ID zum internen Cache hinzu
-                POSTED_CLIPS_CACHE.add(clip_id)
+                POSTED_CLIPS_CACHE.add((clip_id, channel.id))
 
                 game_name = await get_twitch_game(clip.get("game_id", ""))
                 dt_object = datetime.fromisoformat(clip['created_at'].replace('Z', '+00:00'))

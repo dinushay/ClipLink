@@ -15,11 +15,8 @@ CHECK_INTERVAL_SECONDS = 60
 MAX_STREAMERS_PER_GUILD = 5
 DEBUG_MODE = False
 
-# Interner Cache für die Session (wird nicht in Datei gespeichert)
-# Speichert Clip-IDs, um Duplikate innerhalb von 24h/Session zu vermeiden
 POSTED_CLIPS_CACHE = set()
 
-# Load configuration
 try:
     with open(CONFIG_FILE, 'r') as f:
         config = json.load(f)
@@ -233,24 +230,18 @@ async def clip_checker():
         elif clip:
             clip_id = clip["id"]
             
-            # PRÜFUNG: Ist der Clip bereits im internen Session-Cache?
-            # PRÜFUNG: Ist der Clip bereits im internen Session-Cache für diesen Channel?
             if (clip_id, channel.id) in POSTED_CLIPS_CACHE:
                 if DEBUG_MODE:
                     print(f"[CACHE HIT] Clip {clip_id} was already posted in this session for channel {channel.id}. Skipping.")
-                # Wir fügen den Entry trotzdem wieder hinzu, damit er nicht gelöscht wird
                 updated_streamers.append(entry)
                 continue
 
-            # PRÜFUNG: Ist der Clip ungleich der letzten gespeicherten ID in der Datei?
             if clip_id != entry.get("last_clip_id"):
                 if DEBUG_MODE:
                     print(f"[NEW CLIP] New clip found for {clip['broadcaster_name']} ({clip['broadcaster_id']}): {clip_id}")
                 
-                # Aktualisiere die Datei-Datenbank
                 entry["last_clip_id"] = clip_id
                 
-                # Füge ID zum internen Cache hinzu
                 POSTED_CLIPS_CACHE.add((clip_id, channel.id))
 
                 game_name = await get_twitch_game(clip.get("game_id", ""))

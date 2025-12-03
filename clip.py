@@ -234,9 +234,10 @@ async def clip_checker():
             clip_id = clip["id"]
             
             # PRÜFUNG: Ist der Clip bereits im internen Session-Cache?
-            if clip_id in POSTED_CLIPS_CACHE:
+            # PRÜFUNG: Ist der Clip bereits im internen Session-Cache für diesen Channel?
+            if (clip_id, channel.id) in POSTED_CLIPS_CACHE:
                 if DEBUG_MODE:
-                    print(f"[CACHE HIT] Clip {clip_id} wurde in dieser Session bereits gepostet. Skipping.")
+                    print(f"[CACHE HIT] Clip {clip_id} was already posted in this session for channel {channel.id}. Skipping.")
                 # Wir fügen den Entry trotzdem wieder hinzu, damit er nicht gelöscht wird
                 updated_streamers.append(entry)
                 continue

@@ -123,8 +123,14 @@ def get_language_strings(language, server_id=None):
 
 
 def translate(language, key, default="", server_id=None, **kwargs):
-    template = get_language_strings(language, server_id).get(key, default)
-    return template.format(**kwargs)
+    try:
+        template = get_language_strings(language, server_id).get(key, default)
+        return template.format(**kwargs)
+    except Exception:
+        try:
+            return default.format(**kwargs)
+        except Exception:
+            return default
 
 
 def get_available_language_choices(server_id):

@@ -20,7 +20,6 @@ CUSTOM_LANG_FILE = "custom_languages.json"
 LANGUAGE_STRINGS = {}
 AVAILABLE_LANGUAGES = []
 CUSTOM_LANGUAGES = {}
-# Keys expected in a custom language definition. These will be prefilled from English defaults.
 EXPECTED_CUSTOM_KEYS = [
     "success_add",
     "error_permission",
@@ -49,13 +48,11 @@ def load_language_files():
         return
 
     loaded = {}
-    # Use case-normalized keys (Title case) to avoid duplicates like 'english' and 'English'
     for filename in sorted(os.listdir(LANG_DIR)):
         if not filename.lower().endswith(".txt"):
             continue
 
         raw_name = os.path.splitext(filename)[0]
-        # normalize to Title Case for display/keys
         language_name = raw_name.strip().title()
         file_path = os.path.join(LANG_DIR, filename)
         strings = {}
@@ -74,18 +71,14 @@ def load_language_files():
             continue
 
         if strings:
-            # if a file with different casing produced the same title-cased name,
-            # merge keys so later files don't overwrite previous entries entirely
             if language_name in loaded:
                 loaded[language_name].update(strings)
             else:
                 loaded[language_name] = strings
 
-    # ensure English exists as a fallback (case-insensitive)
     if not any(name.lower() == "english" for name in loaded.keys()):
         loaded["English"] = {}
 
-    # sort languages for stable ordering
     AVAILABLE_LANGUAGES = sorted(loaded.keys()) or ["English"]
     LANGUAGE_STRINGS = loaded
 
@@ -116,13 +109,11 @@ def get_custom_language(server_id):
 
 
 def get_language_strings(language, server_id=None):
-    # If 'Custom' is requested, return the server's custom language dict
     if server_id is not None and isinstance(language, str) and language == "Custom":
         custom = get_custom_language(server_id)
         if custom:
             return custom
 
-    # Normalize common language keys (Title case)
     if isinstance(language, str):
         normalized = language.title()
         if normalized in LANGUAGE_STRINGS:
@@ -139,7 +130,6 @@ def translate(language, key, default="", server_id=None, **kwargs):
 def get_available_language_choices(server_id):
     choices = list(AVAILABLE_LANGUAGES)
     server_custom = CUSTOM_LANGUAGES.get(str(server_id))
-    # If server has a custom language configured, expose a single choice 'Custom'
     if server_custom:
         if "Custom" not in choices:
             choices.insert(0, "Custom")
@@ -162,7 +152,6 @@ except KeyError as e:
 load_language_files()
 load_custom_languages()
 
-# Bot instance
 intents = nextcord.Intents.default()
 intents.guilds = True
 intents.members = True
@@ -429,8 +418,6 @@ class CustomLanguageModal(nextcord.ui.Modal):
         self.server_id = str(server_id)
         initial_values = initial_values or {}
 
-        # Build a single modular text area prefilled with English defaults,
-        # grouped into logical sections and annotated with comment headers.
         english_defaults = get_language_strings("English")
 
         groups = [
@@ -456,7 +443,6 @@ class CustomLanguageModal(nextcord.ui.Modal):
             for key in keys:
                 val = initial_values.get(key) if key in initial_values else english_defaults.get(key, "")
                 lines.append(f"{key}={val}")
-            # separate groups with an empty line for readability
             lines.append("")
 
         initial_text = "\n".join(lines).strip()
@@ -479,7 +465,6 @@ class CustomLanguageModal(nextcord.ui.Modal):
             if not line or line.startswith("#"):
                 continue
             if "=" not in line:
-                # report bad formatting line
                 await interaction.response.send_message(
                     f"❌ **Error:** Invalid line format (expected key=value): `{line}`",
                     ephemeral=True
@@ -488,7 +473,6 @@ class CustomLanguageModal(nextcord.ui.Modal):
             key, value = line.split("=", 1)
             values[key.strip()] = value.strip()
 
-        # Validate presence of expected keys
         missing = [k for k in EXPECTED_CUSTOM_KEYS if k not in values or not values[k].strip()]
         if missing:
             await interaction.response.send_message(
@@ -497,7 +481,6 @@ class CustomLanguageModal(nextcord.ui.Modal):
             )
             return
 
-        # Save and acknowledge
         CUSTOM_LANGUAGES[self.server_id] = values
         save_custom_languages(CUSTOM_LANGUAGES)
 
@@ -533,7 +516,6 @@ async def addstreamer(
     target_channel = channel or interaction.channel
     selected_language = language or "English"
 
-    # If user selected 'Custom', ensure the server has a custom language configured
     if selected_language == "Custom":
         if not get_custom_language(interaction.guild.id):
             await interaction.response.send_message(
@@ -601,7 +583,6 @@ async def addstreamer(
 async def customlang(
     interaction: nextcord.Interaction
 ):
-    # Manual permission check: require Manage Guild
     try:
         if not interaction.user.guild_permissions.manage_guild:
             await interaction.response.send_message(
@@ -610,7 +591,6 @@ async def customlang(
             )
             return
     except Exception:
-        # Fallback if guild or permissions unavailable
         pass
 
     existing = get_custom_language(interaction.guild.id)
@@ -622,7 +602,6 @@ async def customlang(
     except Exception as e:
         if DEBUG_MODE:
             print(f"[ERROR] Failed to open customlang modal: {e}")
-        # Send a helpful error message to the user
         try:
             await interaction.response.send_message(
                 "❌ **Error:** Failed to open the custom language modal. Please try again later.",

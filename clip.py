@@ -129,9 +129,9 @@ def translate(language, key, default="", server_id=None, **kwargs):
 
 def get_available_language_choices(server_id):
     choices = list(AVAILABLE_LANGUAGES)
-    server_custom = CUSTOM_LANGUAGES.get(str(server_id))
-    if server_custom:
-        if "Custom" not in choices:
+    if server_id is not None:
+        server_custom = CUSTOM_LANGUAGES.get(str(server_id))
+        if server_custom and "Custom" not in choices:
             choices.insert(0, "Custom")
     return choices
 

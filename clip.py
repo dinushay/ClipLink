@@ -91,8 +91,9 @@ def load_custom_languages():
         return
     try:
         with open(CUSTOM_LANG_FILE, "r", encoding="utf-8") as f:
-            CUSTOM_LANGUAGES = json.load(f)
-    except json.JSONDecodeError:
+            data = json.load(f)
+            CUSTOM_LANGUAGES = data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, OSError):
         CUSTOM_LANGUAGES = {}
 
 

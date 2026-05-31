@@ -583,15 +583,19 @@ async def addstreamer(
 async def customlang(
     interaction: nextcord.Interaction
 ):
-    try:
-        if not interaction.user.guild_permissions.manage_guild:
-            await interaction.response.send_message(
-                "❌ **Error:** You need the `Manage Server` permission to configure a custom language.",
-                ephemeral=True
-            )
-            return
-    except Exception:
-        pass
+    if not interaction.guild:
+        await interaction.response.send_message(
+            "❌ **Error:** This command can only be used within a server.",
+            ephemeral=True
+        )
+        return
+
+    if not interaction.user.guild_permissions.manage_guild:
+        await interaction.response.send_message(
+            "❌ **Error:** You need the 'Manage Server' permission to configure a custom language.",
+            ephemeral=True
+        )
+        return
 
     existing = get_custom_language(interaction.guild.id)
     initial_values = existing or {}

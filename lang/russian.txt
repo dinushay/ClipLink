@@ -1,0 +1,16 @@
+language_name=Русский
+success_add=✅ **Успех!** Стример **{streamer_name}** теперь отслеживается. Новые клипы будут публиковаться в {channel}.
+error_permission=❌ **Ошибка:** Мне нужны права `Просмотр канала`, `Отправка сообщений` и `Встраивание ссылок` в выбранном канале для работы.
+error_not_found=❌ **Ошибка:** Канал Twitch с именем/ID `{twitch_user}` не найден.
+error_duplicate=❌ **Ошибка:** Стример **{streamer_name}** уже отслеживается на этом сервере.
+error_limit=❌ **Ошибка:** Достигнут лимит в **{limit}** стримеров на сервер.
+list_empty=ℹ️ В настоящее время на этом сервере нет отслеживаемых стримеров.
+notification_title=🎬｜Новый клип у {broadcaster_name}
+notification_description=**[{title}]({url})**
+field_created_by=Создано пользователем
+field_category=Категория
+field_created=Создано
+field_duration=Длительность: {duration} секунд
+view_clip=Посмотреть клип
+goto_vod=Перейти к VOD
+error_no_custom=❌ **Ошибка:** Для этого сервера не настроен пользовательский язык. Используйте /customlang чтобы создать один.

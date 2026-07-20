@@ -276,7 +276,29 @@ async def clip_checker():
                     view.add_item(nextcord.ui.Button(label="Go to VOD", style=nextcord.ButtonStyle.link, url=vod_url))
                 
                 try:
-                    await channel.send(embed=embed, view=view)
+                    use_webhook = entry.get("use_webhook", False)
+                    sent = False
+
+                    if use_webhook and channel.permissions_for(guild.me).manage_webhooks:
+                        try:
+                            # Try to send using webhook
+                            twitch_user_info = await get_twitch_user(streamer_id)
+                            username = twitch_user_info.get("display_name", clip['broadcaster_name']) if twitch_user_info else clip['broadcaster_name']
+
+                            webhooks = await channel.webhooks()
+                            webhook = next((w for w in webhooks if w.name == "ClipLink" and w.token), None)
+                            if not webhook:
+                                webhook = await channel.create_webhook(name="ClipLink")
+
+                            await webhook.send(embed=embed, view=view, username=username)
+                            sent = True
+                        except Exception as e:
+                            if DEBUG_MODE:
+                                print(f"[WARNING] Failed to send via webhook in channel {channel.id}: {e}")
+
+                    if not sent:
+                        # Fallback to normal send
+                        await channel.send(embed=embed, view=view)
                 except nextcord.Forbidden:
                     if DEBUG_MODE:
                         print(f"[ERROR] No permission to send in channel {channel.id} on server {guild.name}.")
@@ -305,6 +327,11 @@ async def addstreamer(
         description="The Discord channel to send clips to (optional).",
         required=False,
         channel_types=[nextcord.ChannelType.text]
+    ),
+    use_webhook: bool = nextcord.SlashOption(
+        description="Use a webhook to send clips instead of normal messages",
+        required=False,
+        default=False
     )
 ):
     target_channel = channel or interaction.channel
@@ -314,6 +341,13 @@ async def addstreamer(
        not target_channel.permissions_for(interaction.guild.me).embed_links:
         await interaction.response.send_message(
             "❌ **Error:** I need the `View Channel`, `Send Messages`, and `Embed Links` permissions in the selected channel to function.",
+            ephemeral=True
+        )
+        return
+
+    if use_webhook and not target_channel.permissions_for(interaction.guild.me).manage_webhooks:
+        await interaction.response.send_message(
+            "❌ **Error:** I need the `Manage Webhooks` permission in the selected channel to use webhooks.",
             ephemeral=True
         )
         return
@@ -351,7 +385,8 @@ async def addstreamer(
         "server_id": interaction.guild.id,
         "channel_id": target_channel.id,
         "added_by_user_id": interaction.user.id,
-        "last_clip_id": None
+        "last_clip_id": None,
+        "use_webhook": use_webhook
     }
     all_data.append(new_entry)
     save_data(all_data)

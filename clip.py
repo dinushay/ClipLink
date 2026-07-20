@@ -282,8 +282,7 @@ async def clip_checker():
                     if use_webhook and channel.permissions_for(guild.me).manage_webhooks:
                         try:
                             # Try to send using webhook
-                            twitch_user_info = await get_twitch_user(streamer_id)
-                            username = twitch_user_info.get("display_name", clip['broadcaster_name']) if twitch_user_info else clip['broadcaster_name']
+                            username = clip['broadcaster_name']
 
                             webhooks = await channel.webhooks()
                             webhook = next((w for w in webhooks if w.name == "ClipLink" and w.token), None)

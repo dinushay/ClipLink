@@ -3,6 +3,7 @@ from nextcord.ext import commands, tasks
 import json
 import os
 import aiohttp
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 # =============================
@@ -41,13 +42,15 @@ bot = commands.Bot(intents=intents)
 #  Data Management (JSON)
 # =============================
 
-def load_data():
+async def load_data():
     """Loads the streamer configuration from the JSON file."""
     if not os.path.exists(DATA_FILE):
         return []
     try:
-        with open(DATA_FILE, "r") as f:
-            return json.load(f)
+        def _read_json():
+            with open(DATA_FILE, "r") as f:
+                return json.load(f)
+        return await asyncio.to_thread(_read_json)
     except json.JSONDecodeError:
         return []
 
@@ -179,7 +182,7 @@ async def clip_checker():
     if not bot.is_ready():
         return
 
-    all_streamers = load_data()
+    all_streamers = await load_data()
     if not all_streamers:
         return
 
@@ -318,7 +321,7 @@ async def addstreamer(
         )
         return
 
-    all_data = load_data()
+    all_data = await load_data()
     guild_data = [s for s in all_data if s["server_id"] == interaction.guild.id]
 
     if len(guild_data) >= MAX_STREAMERS_PER_GUILD:
@@ -363,7 +366,7 @@ async def addstreamer(
 
 @bot.slash_command(description="Lists all monitored streamers on this server.")
 async def liststreamers(interaction: nextcord.Interaction):
-    guild_data = [s for s in load_data() if s["server_id"] == interaction.guild.id]
+    guild_data = [s for s in await load_data() if s["server_id"] == interaction.guild.id]
 
     if not guild_data:
         await interaction.response.send_message("ℹ️ No streamers are currently being monitored on this server.", ephemeral=True)
@@ -398,7 +401,7 @@ async def removestreamer(
     interaction: nextcord.Interaction,
     streamer: str = nextcord.SlashOption(description="The ID of the streamer to remove.", required=True)
 ):
-    all_data = load_data()
+    all_data = await load_data()
 
     entry_to_remove = None
     for entry in all_data:
@@ -420,7 +423,7 @@ async def removestreamer(
 
 @removestreamer.on_autocomplete("streamer")
 async def streamer_autocomplete(interaction: nextcord.Interaction, streamer: str):
-    guild_data = [s for s in load_data() if s["server_id"] == interaction.guild.id]
+    guild_data = [s for s in await load_data() if s["server_id"] == interaction.guild.id]
     choices = {}
     
     for entry in guild_data:

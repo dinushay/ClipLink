@@ -1,2 +1,4 @@
 config.json
 database.json
+.env
+__pycache__/

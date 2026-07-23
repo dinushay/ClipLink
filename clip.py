@@ -91,76 +91,87 @@ async def refresh_twitch_token():
                     print(f"[ERROR] Token refresh failed. Status: {resp.status}, Response: {await resp.text()}")
                 return False
 
-async def get_twitch_user(identifier):
-    """Fetches Twitch user data by name or ID."""
+async def _twitch_api_get(url):
+    """Helper to perform a GET request to the Twitch API with automatic token refresh."""
     headers = {
         "Authorization": f"Bearer {TWITCH_ACCESS_TOKEN}",
         "Client-Id": TWITCH_CLIENT_ID,
     }
-    param_type = "login" if not identifier.isdigit() else "id"
-    safe_identifier = urllib.parse.quote(identifier)
-    url = f"https://api.twitch.tv/helix/users?{param_type}={safe_identifier}"
-
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers) as resp:
             if resp.status == 401:
                 if DEBUG_MODE:
                     print("[INFO] Token expired. Attempting refresh...")
                 if await refresh_twitch_token():
-                    return await get_twitch_user(identifier)
+                    headers["Authorization"] = f"Bearer {TWITCH_ACCESS_TOKEN}"
+                    async with session.get(url, headers=headers) as retry_resp:
+                        if retry_resp.status == 200:
+                            return await retry_resp.json()
                 return None
 
             if resp.status == 200:
-                data = await resp.json()
-                if data.get("data"):
-                    return data["data"][0]
+                return await resp.json()
+    return None
+
+async def get_twitch_user(identifier):
+    """Fetches Twitch user data by name or ID."""
+    param_type = "login" if not identifier.isdigit() else "id"
+    safe_identifier = urllib.parse.quote(identifier)
+    url = f"https://api.twitch.tv/helix/users?{param_type}={safe_identifier}"
+
+    data = await _twitch_api_get(url)
+    if data and data.get("data"):
+        return data["data"][0]
     return None
 
 async def get_twitch_game(game_id):
     """Fetches Twitch game data by ID."""
     if not game_id:
         return "N/A"
-    headers = {
-        "Authorization": f"Bearer {TWITCH_ACCESS_TOKEN}",
-        "Client-Id": TWITCH_CLIENT_ID,
-    }
     safe_game_id = urllib.parse.quote(str(game_id))
     url = f"https://api.twitch.tv/helix/games?id={safe_game_id}"
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers) as resp:
-            if resp.status == 401:
-                if await refresh_twitch_token():
-                    return await get_twitch_game(game_id)
-                return "N/A"
-
-            if resp.status == 200:
-                data = await resp.json()
-                if data.get("data"):
-                    return data["data"][0]["name"]
+    data = await _twitch_api_get(url)
+    if data and data.get("data"):
+        return data["data"][0]["name"]
     return "N/A"
 
 async def get_latest_clip(broadcaster_id):
     """Fetches the latest clip for a broadcaster within the last day."""
-    headers = {
-        "Authorization": f"Bearer {TWITCH_ACCESS_TOKEN}",
-        "Client-Id": TWITCH_CLIENT_ID,
-    }
     safe_broadcaster_id = urllib.parse.quote(str(broadcaster_id))
     started_at = (datetime.now(timezone.utc) - timedelta(seconds=CHECK_INTERVAL_SECONDS + 5)).strftime("%Y-%m-%dT%H:%M:%SZ")
     url = f"https://api.twitch.tv/helix/clips?broadcaster_id={safe_broadcaster_id}&first=1&started_at={started_at}"
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers) as resp:
-            if resp.status == 401:
-                if await refresh_twitch_token():
-                    return await get_latest_clip(broadcaster_id)
-                return None
-
-            if resp.status == 200:
-                data = await resp.json()
-                return data["data"][0] if data.get("data") else None
+    data = await _twitch_api_get(url)
+    if data and data.get("data"):
+        return data["data"][0]
     return None
+
+# =============================
+#  Discord Helpers
+# =============================
+
+def _has_required_permissions(channel, member):
+    """Checks if the bot has the required permissions in a channel."""
+    perms = channel.permissions_for(member)
+    return perms.view_channel and perms.send_messages and perms.embed_links
+
+async def _notify_user_removal(entry, reason_message_template, **kwargs):
+    """Notifies a user that their streamer notification has been removed."""
+    try:
+        user = await bot.fetch_user(entry["added_by_user_id"])
+        twitch_user_info = await get_twitch_user(entry["streamer_id"])
+        streamer_display_name = twitch_user_info['display_name'] if twitch_user_info else entry["streamer_id"]
+
+        message = reason_message_template.format(
+            streamer_name=streamer_display_name,
+            streamer_id=entry["streamer_id"],
+            **kwargs
+        )
+        await user.send(message)
+    except (nextcord.NotFound, nextcord.Forbidden):
+        pass
+
 
 # =============================
 #  Bot Events and Background Task
@@ -209,28 +220,23 @@ async def clip_checker():
             streamers_to_remove.append(entry)
             if DEBUG_MODE:
                 print(f"[CLEANUP] Bot no longer on server {entry['server_id']}. Removing entry for {streamer_id}.")
-            try:
-                user = await bot.fetch_user(entry["added_by_user_id"])
-                twitch_user_info = await get_twitch_user(streamer_id)
-                streamer_display_name = twitch_user_info['display_name'] if twitch_user_info else streamer_id
-                await user.send(f"Hey! The bot was removed from the server where you added the streamer **{streamer_display_name}** (`{streamer_id}`). Your notification has therefore been deleted.")
-            except (nextcord.NotFound, nextcord.Forbidden):
-                pass
+            await _notify_user_removal(
+                entry,
+                "Hey! The bot was removed from the server where you added the streamer **{streamer_name}** (`{streamer_id}`). Your notification has therefore been deleted."
+            )
             continue
 
         channel = guild.get_channel(entry["channel_id"])
 
-        if not channel or not channel.permissions_for(guild.me).view_channel or not channel.permissions_for(guild.me).send_messages or not channel.permissions_for(guild.me).embed_links:
+        if not channel or not _has_required_permissions(channel, guild.me):
             streamers_to_remove.append(entry)
             if DEBUG_MODE:
                 print(f"[CLEANUP] Channel {entry['channel_id']} not found or permissions missing on server {guild.name}. Removing entry.")
-            try:
-                user = await bot.fetch_user(entry["added_by_user_id"])
-                twitch_user_info = await get_twitch_user(streamer_id)
-                streamer_display_name = twitch_user_info['display_name'] if twitch_user_info else streamer_id
-                await user.send(f"Hey! The channel for clip notifications from streamer **{streamer_display_name}** (`{streamer_id}`) on the server `{guild.name}` is no longer accessible (deleted or missing permissions [`Embed Links`, `Send Messages` and `View Channels`]). The notification has been removed.")
-            except (nextcord.NotFound, nextcord.Forbidden):
-                pass
+            await _notify_user_removal(
+                entry,
+                "Hey! The channel for clip notifications from streamer **{streamer_name}** (`{streamer_id}`) on the server `{guild_name}` is no longer accessible (deleted or missing permissions [`Embed Links`, `Send Messages` and `View Channels`]). The notification has been removed.",
+                guild_name=guild.name
+            )
             continue
 
         clip = await get_latest_clip(streamer_id)
@@ -321,9 +327,7 @@ async def addstreamer(
 ):
     target_channel = channel or interaction.channel
 
-    if not target_channel.permissions_for(interaction.guild.me).view_channel or \
-       not target_channel.permissions_for(interaction.guild.me).send_messages or \
-       not target_channel.permissions_for(interaction.guild.me).embed_links:
+    if not _has_required_permissions(target_channel, interaction.guild.me):
         await interaction.response.send_message(
             "❌ **Error:** I need the `View Channel`, `Send Messages`, and `Embed Links` permissions in the selected channel to function.",
             ephemeral=True

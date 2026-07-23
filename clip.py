@@ -5,6 +5,7 @@ import os
 import aiohttp
 import asyncio
 from datetime import datetime, timedelta, timezone
+import urllib.parse
 
 # =============================
 #  Configuration & Global Variables
@@ -97,7 +98,8 @@ async def get_twitch_user(identifier):
         "Client-Id": TWITCH_CLIENT_ID,
     }
     param_type = "login" if not identifier.isdigit() else "id"
-    url = f"https://api.twitch.tv/helix/users?{param_type}={identifier}"
+    safe_identifier = urllib.parse.quote(identifier)
+    url = f"https://api.twitch.tv/helix/users?{param_type}={safe_identifier}"
 
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers) as resp:
@@ -122,7 +124,8 @@ async def get_twitch_game(game_id):
         "Authorization": f"Bearer {TWITCH_ACCESS_TOKEN}",
         "Client-Id": TWITCH_CLIENT_ID,
     }
-    url = f"https://api.twitch.tv/helix/games?id={game_id}"
+    safe_game_id = urllib.parse.quote(str(game_id))
+    url = f"https://api.twitch.tv/helix/games?id={safe_game_id}"
 
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers) as resp:
@@ -143,8 +146,9 @@ async def get_latest_clip(broadcaster_id):
         "Authorization": f"Bearer {TWITCH_ACCESS_TOKEN}",
         "Client-Id": TWITCH_CLIENT_ID,
     }
+    safe_broadcaster_id = urllib.parse.quote(str(broadcaster_id))
     started_at = (datetime.now(timezone.utc) - timedelta(seconds=CHECK_INTERVAL_SECONDS + 5)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    url = f"https://api.twitch.tv/helix/clips?broadcaster_id={broadcaster_id}&first=1&started_at={started_at}"
+    url = f"https://api.twitch.tv/helix/clips?broadcaster_id={safe_broadcaster_id}&first=1&started_at={started_at}"
 
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers) as resp:

@@ -36,7 +36,6 @@ except KeyError as e:
 # Bot instance
 intents = nextcord.Intents.default()
 intents.guilds = True
-intents.members = True
 bot = commands.Bot(intents=intents)
 
 # =============================

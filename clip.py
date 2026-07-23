@@ -3,6 +3,7 @@ from nextcord.ext import commands, tasks
 import json
 import os
 import aiohttp
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 # =============================
@@ -41,6 +42,8 @@ bot = commands.Bot(intents=intents)
 #  Data Management (JSON)
 # =============================
 
+data_lock = asyncio.Lock()
+
 def load_data():
     """Loads the streamer configuration from the JSON file."""
     if not os.path.exists(DATA_FILE):
@@ -51,10 +54,15 @@ def load_data():
     except json.JSONDecodeError:
         return []
 
-def save_data(data):
-    """Saves the streamer configuration to the JSON file."""
+def _sync_save_data(data):
+    """Saves the streamer configuration to the JSON file synchronously."""
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=4)
+
+async def save_data(data):
+    """Saves the streamer configuration to the JSON file asynchronously."""
+    async with data_lock:
+        await asyncio.to_thread(_sync_save_data, data)
 
 # =============================
 #  Twitch API Helpers
@@ -284,7 +292,7 @@ async def clip_checker():
         updated_streamers.append(entry)
 
     final_data = [e for e in updated_streamers if e not in streamers_to_remove]
-    save_data(final_data)
+    await save_data(final_data)
 
 @clip_checker.before_loop
 async def before_checker():
@@ -354,7 +362,7 @@ async def addstreamer(
         "last_clip_id": None
     }
     all_data.append(new_entry)
-    save_data(all_data)
+    await save_data(all_data)
 
     await interaction.response.send_message(
         f"✅ **Success!** The streamer **{streamer_name}** is now being monitored. New clips will be posted in {target_channel.mention}.",
@@ -411,7 +419,7 @@ async def removestreamer(
         return
 
     all_data.remove(entry_to_remove)
-    save_data(all_data)
+    await save_data(all_data)
 
     user_info = await get_twitch_user(streamer)
     streamer_name = user_info["display_name"] if user_info else f"ID: {streamer}"

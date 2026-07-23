@@ -413,7 +413,10 @@ async def removestreamer(
     all_data.remove(entry_to_remove)
     save_data(all_data)
 
-    await interaction.response.send_message(f"✅ **Success!** The streamer with the ID `{streamer}` is no longer being monitored.", ephemeral=True)
+    user_info = await get_twitch_user(streamer)
+    streamer_name = user_info["display_name"] if user_info else f"ID: {streamer}"
+
+    await interaction.response.send_message(f"✅ **Success!** The streamer **{streamer_name}** is no longer being monitored.", ephemeral=True)
 
 @removestreamer.on_autocomplete("streamer")
 async def streamer_autocomplete(interaction: nextcord.Interaction, streamer: str):

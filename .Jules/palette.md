@@ -1,0 +1,3 @@
+## 2023-11-20 - Improve Deletion Confirmation UX
+**Learning:** Using the human-readable `display_name` in success messages (instead of an internal ID) improves user confidence and usability by closing the feedback loop more clearly. Users don't have to remember or verify internal IDs.
+**Action:** Always map internal identifiers to human-readable names for confirmation and success states when a user performs destructive or modifying actions.

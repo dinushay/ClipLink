@@ -17,6 +17,8 @@ This bot is the code behind the [ClipLink Discord Bot](https://discord.com/oauth
 - **VOD Linking**: Includes a button to jump directly to the moment in the VOD where the clip was created (if available).
 - **User-Friendly Commands**: Simple and intuitive slash commands for adding, listing, and removing streamers.
 - **Autocomplete Support**: Easily find the streamer you want to remove with smart autocompletion.
+- **Multi-Language Support**: Built-in English, German, Spanish, French, Russian, and Italian language files for notification messages.
+- **Custom Server Language**: Configure a custom server-specific language with `/customlang`.
 
 ---
 
@@ -70,7 +72,7 @@ The bot's behavior can be adjusted through the global variables at the top of th
 -   `DATA_FILE`: The name of the database file where streamer information is stored (default: `"database.json"`).
 -   `CHECK_INTERVAL_SECONDS`: How often (in seconds) the bot checks for new clips (default: `60`).
 -   `MAX_STREAMERS_PER_GUILD`: The maximum number of streamers that can be added to one Discord server (default: `5`).
--   `DEBUG_MODE`: Set to `True` for detailed logging in the console (default: `Frue`).
+-   `DEBUG_MODE`: Set to `True` for detailed logging in the console (default: `False`).
 
 ---
 
@@ -83,9 +85,17 @@ Adds a Twitch streamer to the monitoring list.
 
 -   **`twitch_user`**: The Twitch username or user ID of the streamer.
 -   **`channel`** (Optional): The Discord channel where clip notifications will be sent. If not specified, the channel where the command is used will be chosen.
+-   **`language`** (Optional): Choose one of the built-in languages or `Custom` if your server has a custom language configured.
 
 **Example:**
-`/addstreamer twitch_user:shroud channel:#clips`
+`/addstreamer twitch_user:shroud channel:#clips language:English`
+
+### `/customlang`
+Create or update a server-specific custom language. This lets you override built-in language strings for messages, embed labels, and button text.
+
+-   Run `/customlang` as a server manager.
+-   Fill the form with `key=value` pairs for each text string.
+-   Once saved, choose `Custom` as the language in `/addstreamer`.
 
 ### `/liststreamers`
 Lists all the streamers currently being monitored on the server.

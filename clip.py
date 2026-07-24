@@ -17,7 +17,132 @@ CHECK_INTERVAL_SECONDS = 60
 MAX_STREAMERS_PER_GUILD = 5
 DEBUG_MODE = False
 
+LANG_DIR = "lang"
+CUSTOM_LANG_FILE = "custom_languages.json"
+LANGUAGE_STRINGS = {}
+AVAILABLE_LANGUAGES = []
+CUSTOM_LANGUAGES = {}
+EXPECTED_CUSTOM_KEYS = [
+    "success_add",
+    "error_permission",
+    "error_not_found",
+    "error_duplicate",
+    "error_limit",
+    "notification_title",
+    "notification_description",
+    "field_created_by",
+    "field_category",
+    "field_created",
+    "field_duration",
+    "view_clip",
+    "goto_vod",
+]
+
 POSTED_CLIPS_CACHE = set()
+
+
+def load_language_files():
+    """Loads all language text files from the language folder."""
+    global LANGUAGE_STRINGS, AVAILABLE_LANGUAGES
+    if not os.path.exists(LANG_DIR):
+        AVAILABLE_LANGUAGES = ["English"]
+        LANGUAGE_STRINGS = {"English": {}}
+        return
+
+    loaded = {}
+    for filename in sorted(os.listdir(LANG_DIR)):
+        if not filename.lower().endswith(".txt"):
+            continue
+
+        raw_name = os.path.splitext(filename)[0]
+        language_name = raw_name.strip().title()
+        file_path = os.path.join(LANG_DIR, filename)
+        strings = {}
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                for raw_line in f:
+                    line = raw_line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" not in line:
+                        continue
+                    key, value = line.split("=", 1)
+                    strings[key.strip()] = value.strip()
+        except OSError:
+            continue
+
+        if strings:
+            if language_name in loaded:
+                loaded[language_name].update(strings)
+            else:
+                loaded[language_name] = strings
+
+    if not any(name.lower() == "english" for name in loaded.keys()):
+        loaded["English"] = {}
+
+    AVAILABLE_LANGUAGES = sorted(loaded.keys()) or ["English"]
+    LANGUAGE_STRINGS = loaded
+
+
+def load_custom_languages():
+    """Loads server-specific custom languages from the JSON file."""
+    global CUSTOM_LANGUAGES
+    if not os.path.exists(CUSTOM_LANG_FILE):
+        CUSTOM_LANGUAGES = {}
+        return
+    try:
+        with open(CUSTOM_LANG_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            CUSTOM_LANGUAGES = data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, OSError):
+        CUSTOM_LANGUAGES = {}
+
+
+def save_custom_languages(data):
+    """Saves server-specific custom languages to the JSON file."""
+    with open(CUSTOM_LANG_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+
+
+def get_custom_language(server_id):
+    """Return the server's custom language dict, or None if not set."""
+    server_id = str(server_id)
+    return CUSTOM_LANGUAGES.get(server_id)
+
+
+def get_language_strings(language, server_id=None):
+    if server_id is not None and isinstance(language, str) and language == "Custom":
+        custom = get_custom_language(server_id)
+        if custom:
+            return custom
+
+    if isinstance(language, str):
+        normalized = language.title()
+        if normalized in LANGUAGE_STRINGS:
+            return LANGUAGE_STRINGS[normalized]
+
+    return LANGUAGE_STRINGS.get("English", {})
+
+
+def translate(language, key, default="", server_id=None, **kwargs):
+    try:
+        template = get_language_strings(language, server_id).get(key, default)
+        return template.format(**kwargs)
+    except Exception:
+        try:
+            return default.format(**kwargs)
+        except Exception:
+            return default
+
+
+def get_available_language_choices(server_id):
+    choices = list(AVAILABLE_LANGUAGES)
+    if server_id is not None:
+        server_custom = CUSTOM_LANGUAGES.get(str(server_id))
+        if server_custom and "Custom" not in choices:
+            choices.insert(0, "Custom")
+    return choices
 
 try:
     with open(CONFIG_FILE, 'r') as f:
@@ -33,7 +158,9 @@ except KeyError as e:
     print(f"[FATAL] Missing key in config.json: {e}")
     exit()
 
-# Bot instance
+load_language_files()
+load_custom_languages()
+
 intents = nextcord.Intents.default()
 intents.guilds = True
 intents.members = True
@@ -256,23 +383,24 @@ async def clip_checker():
                 
                 POSTED_CLIPS_CACHE.add((clip_id, channel.id))
 
+                entry_language = entry.get("language", "English")
                 game_name = await get_twitch_game(clip.get("game_id", ""))
                 dt_object = datetime.fromisoformat(clip['created_at'].replace('Z', '+00:00'))
                 timestamp = int(dt_object.timestamp())
 
                 embed = nextcord.Embed(
-                    title=f"🎬｜New Clip at {clip['broadcaster_name']}",
-                    description=f"**[{clip['title']}]({clip['url']})**",
+                    title=translate(entry_language, "notification_title", "🎬｜New Clip at {broadcaster_name}", server_id=entry['server_id'], broadcaster_name=clip['broadcaster_name']),
+                    description=translate(entry_language, "notification_description", "**[{title}]({url})**", server_id=entry['server_id'], title=clip['title'], url=clip['url']),
                     color=nextcord.Color.purple()
                 )
-                embed.add_field(name="Created by", value=clip['creator_name'], inline=True)
-                embed.add_field(name="Category", value=game_name, inline=True)
-                embed.add_field(name="Created", value=f"<t:{timestamp}:R>", inline=True)
+                embed.add_field(name=translate(entry_language, "field_created_by", "Created by", server_id=entry['server_id']), value=clip['creator_name'], inline=True)
+                embed.add_field(name=translate(entry_language, "field_category", "Category", server_id=entry['server_id']), value=game_name, inline=True)
+                embed.add_field(name=translate(entry_language, "field_created", "Created", server_id=entry['server_id']), value=f"<t:{timestamp}:R>", inline=True)
                 embed.set_image(url=clip['thumbnail_url'])
-                embed.set_footer(text=f"Duration: {int(clip['duration'])} seconds")
+                embed.set_footer(text=translate(entry_language, "field_duration", "Duration: {duration} seconds", server_id=entry['server_id'], duration=int(clip['duration'])))
 
                 view = nextcord.ui.View()
-                view.add_item(nextcord.ui.Button(label="View Clip", style=nextcord.ButtonStyle.link, url=clip['url']))
+                view.add_item(nextcord.ui.Button(label=translate(entry_language, "view_clip", "View Clip", server_id=entry['server_id']), style=nextcord.ButtonStyle.link, url=clip['url']))
 
                 if clip.get("video_id") and clip.get("vod_offset") is not None:
                     video_id = clip["video_id"]
@@ -285,7 +413,7 @@ async def clip_checker():
                     
                     vod_url = f"https://www.twitch.tv/videos/{video_id}?t={vod_timestamp}"
                     
-                    view.add_item(nextcord.ui.Button(label="Go to VOD", style=nextcord.ButtonStyle.link, url=vod_url))
+                    view.add_item(nextcord.ui.Button(label=translate(entry_language, "goto_vod", "Go to VOD", server_id=entry['server_id']), style=nextcord.ButtonStyle.link, url=vod_url))
                 
                 try:
                     await channel.send(embed=embed, view=view)
@@ -302,6 +430,85 @@ async def clip_checker():
 async def before_checker():
     await bot.wait_until_ready()
 
+
+class CustomLanguageModal(nextcord.ui.Modal):
+    def __init__(self, server_id: int, initial_values: dict | None = None):
+        super().__init__(title="Custom Language (Server)")
+        self.server_id = str(server_id)
+        initial_values = initial_values or {}
+
+        english_defaults = get_language_strings("English")
+
+        groups = [
+            ["success_add"],
+            [
+                "error_permission",
+                "error_not_found",
+                "error_duplicate",
+                "error_limit",
+            ],
+            ["notification_title", "notification_description"],
+            [
+                "field_created_by",
+                "field_category",
+                "field_created",
+                "field_duration",
+            ],
+            ["view_clip", "goto_vod"],
+        ]
+
+        lines = []
+        for keys in groups:
+            for key in keys:
+                val = initial_values.get(key) if key in initial_values else english_defaults.get(key, "")
+                lines.append(f"{key}={val}")
+            lines.append("")
+
+        initial_text = "\n".join(lines).strip()
+
+        self.definition = nextcord.ui.TextInput(
+            label="Custom language (one key=value per line)",
+            style=nextcord.TextInputStyle.paragraph,
+            placeholder="notification_title=...\nnotification_description=...\nview_clip=...",
+            required=True,
+            default_value=initial_text,
+            max_length=4000
+        )
+        self.add_item(self.definition)
+
+    async def callback(self, interaction: nextcord.Interaction):
+        raw = self.definition.value or ""
+        values = {}
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                await interaction.response.send_message(
+                    f"❌ **Error:** Invalid line format (expected key=value): `{line}`",
+                    ephemeral=True
+                )
+                return
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip()
+
+        missing = [k for k in EXPECTED_CUSTOM_KEYS if k not in values or not values[k].strip()]
+        if missing:
+            await interaction.response.send_message(
+                f"❌ **Error:** Missing required keys: {', '.join(missing)}. Please include them in the form.",
+                ephemeral=True
+            )
+            return
+
+        CUSTOM_LANGUAGES[self.server_id] = values
+        save_custom_languages(CUSTOM_LANGUAGES)
+
+        await interaction.response.send_message(
+            "✅ **Custom language** has been saved for this server. You can select **Custom** for the language option when using `/addstreamer`.",
+            ephemeral=True
+        )
+
+
 # =============================
 #  Slash Commands
 # =============================
@@ -317,15 +524,30 @@ async def addstreamer(
         description="The Discord channel to send clips to (optional).",
         required=False,
         channel_types=[nextcord.ChannelType.text]
+    ),
+    language: str = nextcord.SlashOption(
+        description="The language used for notifications and confirmation messages.",
+        required=False,
+        autocomplete=True,
+        default="English"
     )
 ):
     target_channel = channel or interaction.channel
+    selected_language = language or "English"
+
+    if selected_language == "Custom":
+        if not get_custom_language(interaction.guild.id):
+            await interaction.response.send_message(
+                translate("English", "error_no_custom", "❌ **Error:** No custom language is configured for this server. Use /customlang to create one.", server_id=interaction.guild.id),
+                ephemeral=True
+            )
+            return
 
     if not target_channel.permissions_for(interaction.guild.me).view_channel or \
        not target_channel.permissions_for(interaction.guild.me).send_messages or \
        not target_channel.permissions_for(interaction.guild.me).embed_links:
         await interaction.response.send_message(
-            "❌ **Error:** I need the `View Channel`, `Send Messages`, and `Embed Links` permissions in the selected channel to function.",
+            translate(selected_language, "error_permission", "❌ **Error:** I need the `View Channel`, `Send Messages`, and `Embed Links` permissions in the selected channel to function.", server_id=interaction.guild.id),
             ephemeral=True
         )
         return
@@ -335,7 +557,7 @@ async def addstreamer(
 
     if len(guild_data) >= MAX_STREAMERS_PER_GUILD:
         await interaction.response.send_message(
-            f"❌ **Error:** The limit of **{MAX_STREAMERS_PER_GUILD}** streamers per server has been reached.",
+            translate(selected_language, "error_limit", f"❌ **Error:** The limit of **{MAX_STREAMERS_PER_GUILD}** streamers per server has been reached.", server_id=interaction.guild.id, limit=MAX_STREAMERS_PER_GUILD),
             ephemeral=True
         )
         return
@@ -343,7 +565,7 @@ async def addstreamer(
     twitch_account = await get_twitch_user(twitch_user)
     if not twitch_account:
         await interaction.response.send_message(
-            f"❌ **Error:** A Twitch channel with the name/ID `{twitch_user}` could not be found.",
+            translate(selected_language, "error_not_found", f"❌ **Error:** A Twitch channel with the name/ID `{twitch_user}` could not be found.", server_id=interaction.guild.id, twitch_user=twitch_user),
             ephemeral=True
         )
         return
@@ -353,7 +575,7 @@ async def addstreamer(
 
     if any(s["streamer_id"] == streamer_id for s in guild_data):
         await interaction.response.send_message(
-            f"❌ **Error:** The streamer **{streamer_name}** is already being monitored on this server.",
+            translate(selected_language, "error_duplicate", f"❌ **Error:** The streamer **{streamer_name}** is already being monitored on this server.", server_id=interaction.guild.id, streamer_name=streamer_name),
             ephemeral=True
         )
         return
@@ -363,15 +585,54 @@ async def addstreamer(
         "server_id": interaction.guild.id,
         "channel_id": target_channel.id,
         "added_by_user_id": interaction.user.id,
-        "last_clip_id": None
+        "last_clip_id": None,
+        "language": selected_language
     }
     all_data.append(new_entry)
     await save_data(all_data)
 
     await interaction.response.send_message(
-        f"✅ **Success!** The streamer **{streamer_name}** is now being monitored. New clips will be posted in {target_channel.mention}.",
+        translate(selected_language, "success_add", f"✅ **Success!** The streamer **{streamer_name}** is now being monitored. New clips will be posted in {target_channel.mention}.", server_id=interaction.guild.id, streamer_name=streamer_name, channel=target_channel.mention),
         ephemeral=True
     )
+
+@bot.slash_command(
+    description="Create or update a server-specific custom language."
+)
+async def customlang(
+    interaction: nextcord.Interaction
+):
+    if not interaction.guild:
+        await interaction.response.send_message(
+            "❌ **Error:** This command can only be used within a server.",
+            ephemeral=True
+        )
+        return
+
+    if not interaction.user.guild_permissions.manage_guild:
+        await interaction.response.send_message(
+            "❌ **Error:** You need the 'Manage Server' permission to configure a custom language.",
+            ephemeral=True
+        )
+        return
+
+    existing = get_custom_language(interaction.guild.id)
+    initial_values = existing or {}
+
+    modal = CustomLanguageModal(interaction.guild.id, initial_values=initial_values)
+    try:
+        await interaction.response.send_modal(modal)
+    except Exception as e:
+        if DEBUG_MODE:
+            print(f"[ERROR] Failed to open customlang modal: {e}")
+        try:
+            await interaction.response.send_message(
+                "❌ **Error:** Failed to open the custom language modal. Please try again later.",
+                ephemeral=True
+            )
+        except Exception:
+            pass
+
 
 @bot.slash_command(description="Lists all monitored streamers on this server.")
 async def liststreamers(interaction: nextcord.Interaction):
@@ -400,7 +661,7 @@ async def liststreamers(interaction: nextcord.Interaction):
 
         embed.add_field(
             name=f"{streamer_name} ({entry['streamer_id']})",
-            value=f"Added by: <@{entry['added_by_user_id']}>\nChannel: {channel_mention}",
+            value=f"Added by: <@{entry['added_by_user_id']}>\nChannel: {channel_mention}\nLanguage: {entry.get('language', 'English')}",
             inline=False
         )
 
@@ -446,6 +707,18 @@ async def streamer_autocomplete(interaction: nextcord.Interaction, streamer: str
         if streamer.lower() in name.lower():
             choices[f"{name} ({entry['streamer_id']})"] = entry['streamer_id']
 
+    await interaction.response.send_autocomplete(choices)
+
+
+@addstreamer.on_autocomplete("language")
+async def addstreamer_language_autocomplete(interaction: nextcord.Interaction, language: str):
+    server_id = interaction.guild.id if interaction.guild else None
+    choices = {}
+    for lang in get_available_language_choices(server_id):
+        if not language or language.lower() in lang.lower():
+            choices[lang] = lang
+            if len(choices) >= 25:
+                break
     await interaction.response.send_autocomplete(choices)
 
 @bot.event

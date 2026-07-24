@@ -1,0 +1,16 @@
+language_name=German
+success_add=✅ **Erfolg!** Der Streamer **{streamer_name}** wird nun überwacht. Neue Clips werden in {channel} gepostet.
+error_permission=❌ **Fehler:** Ich benötige die Berechtigungen `Kanal anzeigen`, `Nachrichten senden` und `Einbettungen einfügen` im ausgewählten Kanal.
+error_not_found=❌ **Fehler:** Ein Twitch-Kanal mit dem Namen/ID `{twitch_user}` konnte nicht gefunden werden.
+error_duplicate=❌ **Fehler:** Der Streamer **{streamer_name}** wird auf diesem Server bereits überwacht.
+error_limit=❌ **Fehler:** Das Limit von **{limit}** Streamern pro Server wurde erreicht.
+list_empty=ℹ️ Auf diesem Server werden derzeit keine Streamer überwacht.
+notification_title=🎬｜Neuer Clip von {broadcaster_name}
+notification_description=**[{title}]({url})**
+field_created_by=Erstellt von
+field_category=Kategorie
+field_created=Erstellt
+field_duration=Dauer: {duration} Sekunden
+view_clip=Clip ansehen
+goto_vod=Zum VOD
+error_no_custom=❌ **Fehler:** Für diesen Server wurde keine Custom Language konfiguriert. Verwende /customlang, um eine zu erstellen.

@@ -378,7 +378,12 @@ async def liststreamers(interaction: nextcord.Interaction):
     guild_data = [s for s in load_data() if s["server_id"] == interaction.guild.id]
 
     if not guild_data:
-        await interaction.response.send_message("ℹ️ No streamers are currently being monitored on this server.", ephemeral=True)
+        empty_embed = nextcord.Embed(
+            title="No Streamers Found",
+            description="There are currently no streamers being monitored on this server.\n\n💡 **Tip:** Use the `/addstreamer` command to start monitoring your favorite streamers' clips!",
+            color=nextcord.Color.light_grey()
+        )
+        await interaction.response.send_message(embed=empty_embed, ephemeral=True)
         return
 
     embed = nextcord.Embed(

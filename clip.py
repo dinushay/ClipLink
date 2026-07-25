@@ -312,7 +312,7 @@ async def before_checker():
 )
 async def addstreamer(
     interaction: nextcord.Interaction,
-    twitch_user: str = nextcord.SlashOption(description="The name or ID of the Twitch streamer.", required=True),
+    twitch_user: str = nextcord.SlashOption(description="The name, ID, or URL of the Twitch streamer.", required=True),
     channel: nextcord.abc.GuildChannel = nextcord.SlashOption(
         description="The Discord channel to send clips to (optional).",
         required=False,
@@ -320,6 +320,12 @@ async def addstreamer(
     )
 ):
     target_channel = channel or interaction.channel
+
+    twitch_user = twitch_user.strip()
+    if "twitch.tv/" in twitch_user.lower():
+        parts = twitch_user.lower().split("twitch.tv/")[-1].split("?")[0].strip("/").split("/")
+        if parts:
+            twitch_user = parts[0]
 
     if not target_channel.permissions_for(interaction.guild.me).view_channel or \
        not target_channel.permissions_for(interaction.guild.me).send_messages or \

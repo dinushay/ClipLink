@@ -331,7 +331,7 @@ async def addstreamer(
        not target_channel.permissions_for(interaction.guild.me).send_messages or \
        not target_channel.permissions_for(interaction.guild.me).embed_links:
         await interaction.response.send_message(
-            "❌ **Error:** I need the `View Channel`, `Send Messages`, and `Embed Links` permissions in the selected channel to function.",
+            "❌ **Error:** I need the `View Channel`, `Send Messages`, and `Embed Links` permissions in the selected channel to function.\n\n💡 **Tip:** Check the channel settings or server roles to ensure I have these permissions.",
             ephemeral=True
         )
         return
@@ -341,7 +341,7 @@ async def addstreamer(
 
     if len(guild_data) >= MAX_STREAMERS_PER_GUILD:
         await interaction.response.send_message(
-            f"❌ **Error:** The limit of **{MAX_STREAMERS_PER_GUILD}** streamers per server has been reached.",
+            f"❌ **Error:** The limit of **{MAX_STREAMERS_PER_GUILD}** streamers per server has been reached.\n\n💡 **Tip:** Use `/liststreamers` and `/removestreamer` to remove an existing one to make room.",
             ephemeral=True
         )
         return
@@ -349,7 +349,7 @@ async def addstreamer(
     twitch_account = await get_twitch_user(twitch_user)
     if not twitch_account:
         await interaction.response.send_message(
-            f"❌ **Error:** A Twitch channel with the name/ID `{twitch_user}` could not be found.",
+            f"❌ **Error:** A Twitch channel with the name/ID `{twitch_user}` could not be found.\n\n💡 **Tip:** Check the spelling or use the full Twitch URL instead.",
             ephemeral=True
         )
         return
@@ -359,7 +359,7 @@ async def addstreamer(
 
     if any(s["streamer_id"] == streamer_id for s in guild_data):
         await interaction.response.send_message(
-            f"❌ **Error:** The streamer **{streamer_name}** is already being monitored on this server.",
+            f"❌ **Error:** The streamer **{streamer_name}** is already being monitored on this server.\n\n💡 **Tip:** Use `/liststreamers` to see all currently monitored streamers.",
             ephemeral=True
         )
         return
@@ -430,7 +430,7 @@ async def removestreamer(
             break
 
     if not entry_to_remove:
-        await interaction.response.send_message("❌ **Error:** A streamer with this ID is not being monitored on this server.", ephemeral=True)
+        await interaction.response.send_message("❌ **Error:** A streamer with this ID is not being monitored on this server.\n\n💡 **Tip:** Use `/liststreamers` or the autocomplete feature to find the correct streamer to remove.", ephemeral=True)
         return
 
     all_data.remove(entry_to_remove)
@@ -458,7 +458,7 @@ async def streamer_autocomplete(interaction: nextcord.Interaction, streamer: str
 async def on_application_command_error(interaction: nextcord.Interaction, error: Exception):
     if isinstance(error, commands.MissingPermissions):
         await interaction.response.send_message(
-            "❌ **Error:** You do not have the required permission (`Manage Channels`) to execute this command.",
+            "❌ **Error:** You do not have the required permission (`Manage Channels`) to execute this command.\n\n💡 **Tip:** Ask a server administrator to grant you this permission.",
             ephemeral=True
         )
     else:

@@ -269,10 +269,11 @@ async def clip_checker():
                 embed.add_field(name="Category", value=game_name, inline=True)
                 embed.add_field(name="Created", value=f"<t:{timestamp}:R>", inline=True)
                 embed.set_image(url=clip['thumbnail_url'])
-                embed.set_footer(text=f"Duration: {int(clip['duration'])} seconds")
+                duration_s = int(clip['duration'])
+                embed.set_footer(text=f"⏱️ Duration: {duration_s // 60}:{duration_s % 60:02d}")
 
                 view = nextcord.ui.View()
-                view.add_item(nextcord.ui.Button(label="View Clip", style=nextcord.ButtonStyle.link, url=clip['url']))
+                view.add_item(nextcord.ui.Button(label="View Clip", emoji="🎬", style=nextcord.ButtonStyle.link, url=clip['url']))
 
                 if clip.get("video_id") and clip.get("vod_offset") is not None:
                     video_id = clip["video_id"]
@@ -285,7 +286,7 @@ async def clip_checker():
                     
                     vod_url = f"https://www.twitch.tv/videos/{video_id}?t={vod_timestamp}"
                     
-                    view.add_item(nextcord.ui.Button(label="Go to VOD", style=nextcord.ButtonStyle.link, url=vod_url))
+                    view.add_item(nextcord.ui.Button(label="Go to VOD", emoji="📼", style=nextcord.ButtonStyle.link, url=vod_url))
                 
                 try:
                     await channel.send(embed=embed, view=view)

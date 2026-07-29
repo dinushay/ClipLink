@@ -1,0 +1,16 @@
+language_name=Español
+success_add=✅ **¡Éxito!** El streamer **{streamer_name}** ahora está siendo monitorizado. Se publicarán nuevos clips en {channel}.
+error_permission=❌ **Error:** Necesito los permisos `Ver canal`, `Enviar mensajes` y `Insertar incrustaciones` en el canal seleccionado para funcionar.
+error_not_found=❌ **Error:** No se encontró un canal de Twitch con el nombre/ID `{twitch_user}`.
+error_duplicate=❌ **Error:** El streamer **{streamer_name}** ya está siendo monitorizado en este servidor.
+error_limit=❌ **Error:** Se ha alcanzado el límite de **{limit}** streamers por servidor.
+list_empty=ℹ️ Actualmente no se están monitorizando streamers en este servidor.
+notification_title=🎬｜Nuevo clip en {broadcaster_name}
+notification_description=**[{title}]({url})**
+field_created_by=Creado por
+field_category=Categoría
+field_created=Creado
+field_duration=Duración: {duration} segundos
+view_clip=Ver clip
+goto_vod=Ir al VOD
+error_no_custom=❌ **Error:** No hay un idioma personalizado configurado para este servidor. Usa /customlang para crear uno.

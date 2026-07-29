@@ -1,0 +1,16 @@
+language_name=English
+success_add=✅ **Success!** The streamer **{streamer_name}** is now being monitored. New clips will be posted in {channel}.
+error_permission=❌ **Error:** I need the `View Channel`, `Send Messages`, and `Embed Links` permissions in the selected channel to function.
+error_not_found=❌ **Error:** A Twitch channel with the name/ID `{twitch_user}` could not be found.
+error_duplicate=❌ **Error:** The streamer **{streamer_name}** is already being monitored on this server.
+error_limit=❌ **Error:** The limit of **{limit}** streamers per server has been reached.
+list_empty=ℹ️ No streamers are currently being monitored on this server.
+notification_title=🎬｜New Clip at {broadcaster_name}
+notification_description=**[{title}]({url})**
+field_created_by=Created by
+field_category=Category
+field_created=Created
+field_duration=Duration: {duration} seconds
+view_clip=View Clip
+goto_vod=Go to VOD
+error_no_custom=❌ **Error:** No custom language is configured for this server. Use /customlang to create one.

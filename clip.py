@@ -319,6 +319,7 @@ async def addstreamer(
         channel_types=[nextcord.ChannelType.text]
     )
 ):
+    await interaction.response.defer(ephemeral=True)
     target_channel = channel or interaction.channel
 
     twitch_user = twitch_user.strip()
@@ -330,7 +331,7 @@ async def addstreamer(
     if not target_channel.permissions_for(interaction.guild.me).view_channel or \
        not target_channel.permissions_for(interaction.guild.me).send_messages or \
        not target_channel.permissions_for(interaction.guild.me).embed_links:
-        await interaction.response.send_message(
+        await interaction.send(
             "❌ **Error:** I need the `View Channel`, `Send Messages`, and `Embed Links` permissions in the selected channel to function.",
             ephemeral=True
         )
@@ -340,7 +341,7 @@ async def addstreamer(
     guild_data = [s for s in all_data if s["server_id"] == interaction.guild.id]
 
     if len(guild_data) >= MAX_STREAMERS_PER_GUILD:
-        await interaction.response.send_message(
+        await interaction.send(
             f"❌ **Error:** The limit of **{MAX_STREAMERS_PER_GUILD}** streamers per server has been reached.",
             ephemeral=True
         )
@@ -348,7 +349,7 @@ async def addstreamer(
 
     twitch_account = await get_twitch_user(twitch_user)
     if not twitch_account:
-        await interaction.response.send_message(
+        await interaction.send(
             f"❌ **Error:** A Twitch channel with the name/ID `{twitch_user}` could not be found.",
             ephemeral=True
         )
@@ -358,7 +359,7 @@ async def addstreamer(
     streamer_name = twitch_account["display_name"]
 
     if any(s["streamer_id"] == streamer_id for s in guild_data):
-        await interaction.response.send_message(
+        await interaction.send(
             f"❌ **Error:** The streamer **{streamer_name}** is already being monitored on this server.",
             ephemeral=True
         )
@@ -374,13 +375,14 @@ async def addstreamer(
     all_data.append(new_entry)
     await save_data(all_data)
 
-    await interaction.response.send_message(
+    await interaction.send(
         f"✅ **Success!** The streamer **{streamer_name}** is now being monitored. New clips will be posted in {target_channel.mention}.",
         ephemeral=True
     )
 
 @bot.slash_command(description="Lists all monitored streamers on this server.")
 async def liststreamers(interaction: nextcord.Interaction):
+    await interaction.response.defer(ephemeral=True)
     guild_data = [s for s in load_data() if s["server_id"] == interaction.guild.id]
 
     if not guild_data:
@@ -389,7 +391,7 @@ async def liststreamers(interaction: nextcord.Interaction):
             description="There are currently no streamers being monitored on this server.\n\n💡 **Tip:** Use the `/addstreamer` command to start monitoring your favorite streamers' clips!",
             color=nextcord.Color.light_grey()
         )
-        await interaction.response.send_message(embed=empty_embed, ephemeral=True)
+        await interaction.send(embed=empty_embed, ephemeral=True)
         return
 
     embed = nextcord.Embed(
@@ -410,7 +412,7 @@ async def liststreamers(interaction: nextcord.Interaction):
             inline=False
         )
 
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.send(embed=embed, ephemeral=True)
 
 
 @bot.slash_command(
@@ -421,6 +423,7 @@ async def removestreamer(
     interaction: nextcord.Interaction,
     streamer: str = nextcord.SlashOption(description="The ID of the streamer to remove.", required=True)
 ):
+    await interaction.response.defer(ephemeral=True)
     all_data = load_data()
 
     entry_to_remove = None
@@ -430,7 +433,7 @@ async def removestreamer(
             break
 
     if not entry_to_remove:
-        await interaction.response.send_message("❌ **Error:** A streamer with this ID is not being monitored on this server.", ephemeral=True)
+        await interaction.send("❌ **Error:** A streamer with this ID is not being monitored on this server.", ephemeral=True)
         return
 
     all_data.remove(entry_to_remove)
@@ -439,7 +442,7 @@ async def removestreamer(
     user_info = await get_twitch_user(streamer)
     streamer_name = user_info["display_name"] if user_info else f"ID: {streamer}"
 
-    await interaction.response.send_message(f"✅ **Success!** The streamer **{streamer_name}** is no longer being monitored.", ephemeral=True)
+    await interaction.send(f"✅ **Success!** The streamer **{streamer_name}** is no longer being monitored.", ephemeral=True)
 
 @removestreamer.on_autocomplete("streamer")
 async def streamer_autocomplete(interaction: nextcord.Interaction, streamer: str):
@@ -457,10 +460,16 @@ async def streamer_autocomplete(interaction: nextcord.Interaction, streamer: str
 @bot.event
 async def on_application_command_error(interaction: nextcord.Interaction, error: Exception):
     if isinstance(error, commands.MissingPermissions):
-        await interaction.response.send_message(
-            "❌ **Error:** You do not have the required permission (`Manage Channels`) to execute this command.",
-            ephemeral=True
-        )
+        try:
+            await interaction.response.send_message(
+                "❌ **Error:** You do not have the required permission (`Manage Channels`) to execute this command.",
+                ephemeral=True
+            )
+        except nextcord.errors.InteractionResponded:
+            await interaction.send(
+                "❌ **Error:** You do not have the required permission (`Manage Channels`) to execute this command.",
+                ephemeral=True
+            )
     else:
         if DEBUG_MODE:
             print(f"[COMMAND ERROR] An error occurred: {error}")
@@ -470,7 +479,10 @@ async def on_application_command_error(interaction: nextcord.Interaction, error:
                 ephemeral=True
             )
         except nextcord.errors.InteractionResponded:
-            pass
+            await interaction.send(
+                "An unexpected error occurred. Please try again later.",
+                ephemeral=True
+            )
 
 if __name__ == "__main__":
     bot.run(DISCORD_BOT_TOKEN)

@@ -1,3 +1,7 @@
 ## 2026-07-25 - Forgiving Inputs for URLs
 **Learning:** Users often copy and paste full URLs instead of just usernames or IDs, leading to frustrating validation errors if the input is strictly validated against the username format. By adding a bit of parsing logic to gracefully handle URLs, we can drastically improve the UX and reduce friction.
 **Action:** Implemented a URL parser in the `/addstreamer` command that extracts the username if a full Twitch URL is pasted, allowing for more forgiving inputs without changing the core functionality.
+
+## 2026-07-30 - Add loading states for async Discord commands
+**Learning:** When building Discord bot slash commands that depend on external API requests (like fetching data from Twitch API), they can take more than Discord's 3-second interaction window to process, leading to "Interaction failed" timeouts for the user. Furthermore, an immediate "Thinking..." state reassures the user that their request was received and is actively being processed, preventing them from spamming the command.
+**Action:** For all Discord slash commands that perform external API calls or potentially slow asynchronous logic, use `await interaction.response.defer()` immediately at the start of the command to acknowledge the interaction. Consequently, replace `interaction.response.send_message()` with `interaction.send()` (or the followup equivalent) to send the final response.

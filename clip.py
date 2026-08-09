@@ -270,8 +270,12 @@ async def clip_checker():
                 embed.add_field(name="Created", value=f"<t:{timestamp}:R>", inline=True)
                 embed.set_image(url=clip['thumbnail_url'])
                 duration = int(clip['duration'])
-                if duration in (29, 31):
+                if duration in (14, 16):
+                    duration = 15
+                elif duration in (29, 31):
                     duration = 30
+                elif duration in (59, 61):
+                    duration = 60
                 embed.set_footer(text=f"Duration: {duration} seconds")
 
                 view = nextcord.ui.View()

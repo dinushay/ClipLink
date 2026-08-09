@@ -269,7 +269,10 @@ async def clip_checker():
                 embed.add_field(name="Category", value=game_name, inline=True)
                 embed.add_field(name="Created", value=f"<t:{timestamp}:R>", inline=True)
                 embed.set_image(url=clip['thumbnail_url'])
-                embed.set_footer(text=f"Duration: {int(clip['duration'])} seconds")
+                duration = int(clip['duration'])
+                if duration in (29, 31):
+                    duration = 30
+                embed.set_footer(text=f"Duration: {duration} seconds")
 
                 view = nextcord.ui.View()
                 view.add_item(nextcord.ui.Button(label="Watch Clip", style=nextcord.ButtonStyle.link, url=clip['url'], emoji="🎥"))
